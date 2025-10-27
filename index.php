@@ -20,21 +20,23 @@ session_start();
       <h1>ĂN KHI ĐÓI</h1>
       <p>Ăn ngon – Sống khỏe</p>
     </div>
-    <nav class="menu">
-      <div class="item"><a href="index.php">TRANG CHỦ</a></div>
-      <div class="item"><a href="store.php">CỬA HÀNG</a></div>
-      <div class="item"><a href="#wp-products">SẢN PHẨM</a></div>
-      <div class="item"><a href="about_store.php">VỀ CHÚNG TÔI</a></div>
-      <div class="item"><a href="#contact">LIÊN HỆ</a></div>
-      <div class="item"><a href="view_cart.php">🛒 Giỏ hàng</a></div>
+    <nav>
+      <a href="index.php">TRANG CHỦ</a>
+      <a href="store.php">CỬA HÀNG</a>
+      <a href="shop.php">SẢN PHẨM</a>
+      <a href="about_store.php">VỀ CHÚNG TÔI</a>
+      <a href="contact.php">LIÊN HỆ</a>
+      <a href="view_cart.php">🛒 Giỏ hàng</a>
 
-      <?php if(isset($_SESSION['username'])): ?>
-  <div class="item"><a href="account/account.php">👤 <?= htmlspecialchars($_SESSION['username']) ?></a></div>
-  <div class="item"><a href="logout.php">Đăng xuất</a></div>
-<?php else: ?>
-  <div class="item"><a href="login.php">Đăng nhập</a></div>
-  <div class="item"><a href="register.php">Đăng ký</a></div>
-<?php endif; ?>
+     <?php if(isset($_SESSION['username'])): ?>
+        <a href="account/account.php" style="color: #3e2723; font-weight: bold;">
+          Xin chào, <?= htmlspecialchars($_SESSION['username']) ?>
+        </a>
+        <a href="logout.php">Đăng xuất</a>
+      <?php else: ?>
+        <a href="login.php">Đăng nhập</a>
+        <a href="register.php">Đăng ký</a>
+      <?php endif; ?>
 
     </nav>
   </div>
@@ -50,12 +52,7 @@ session_start();
     <p>Giao hàng tận nơi, nhanh chóng</p>
     <p>Gọi là có, cần là đến</p>
     <button>Trải Nghiệm Ngay</button>
-  </div>
-  <div class="box-right">
-    <img src="./ảnh/kem caramel.jpg" alt="Kem Caramel" />
-    <img src="./ảnh/súp.jpg" alt="Súp ngon">
-    <img src="./ảnh/pasta.jpg" alt="Pasta">
-  </div>
+  </div>  
 </div>
 
 <!-- Sản phẩm -->
@@ -100,56 +97,6 @@ session_start();
     </ul>
   </div>
 </div>
-
-<!-- Giới thiệu -->
-<section class="about-section">
-  <div class="about-container">
-    <div class="about-text">
-      <h2>✨ Về Ăn Khi Đói</h2>
-      <p><strong>Ăn Khi Đói</strong> mang đến trải nghiệm ẩm thực tuyệt vời ngay tại nhà bạn.
-      Chúng tôi phục vụ đa dạng món ăn từ truyền thống đến hiện đại, với nguyên liệu tươi ngon và chất lượng nhất.</p>
-      <p>Sứ mệnh của chúng tôi là mang hương vị ngon, dịch vụ nhanh chóng và sự hài lòng tuyệt đối cho khách hàng.</p>
-    </div>
-    <div class="about-image">
-      <img src="./ảnh/sushi.jpg" alt="Giới thiệu Ăn Khi Đói">
-    </div>
-  </div>
-</section>
-
-<!-- Liên hệ -->
-<section class="contact-section" id="contact">
-  <h2>📩 Để lại thông tin để được tư vấn</h2>
-  <form class="contact-form" action="send_contact.php" method="POST">
-    <input type="text" name="name" placeholder="Họ và tên" required>
-    <input type="email" name="email" placeholder="Email của bạn" required>
-    <input type="tel" name="phone" placeholder="Số điện thoại">
-    <textarea name="message" placeholder="Nội dung cần tư vấn..." rows="5" required></textarea>
-    <button type="submit">Gửi thông tin</button>
-  </form>
-</section>
-
-<!-- Footer -->
-<footer class="footer">
-  <div class="footer-container">
-    <div class="footer-col">
-      <h3>Ăn Khi Đói</h3>
-      <p>Ăn Khi Đói - nơi mang đến món ăn tươi ngon, giao hàng tận nơi, nhanh chóng và tiện lợi.</p>
-    </div>
-    <div class="footer-col">
-      <h3>Liên hệ</h3>
-      <p>📍 123 Đường ABC, Quận XYZ, TP.HCM</p>
-      <p>📧 ankhi@example.com</p>
-      <p>📞 0123 456 789</p>
-    </div>
-    <div class="footer-col">
-      <h3>Theo dõi</h3>
-      <p>Facebook | Instagram | Youtube</p>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <p>&copy; 2025 Ăn Khi Đói. All rights reserved.</p>
-  </div>
-</footer>
-
+<?php include_once "footer.php"; ?>
 </body>
 </html>

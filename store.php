@@ -87,27 +87,32 @@ session_start();
   </style>
 </head>
 <body>
+<!-- Header -->
 <header>
-    <div class="container">
-      <div class="logo">
-        <h1>ĂN KHI ĐÓI</h1>
-        <p>Ăn ngon – Sống khỏe</p>
-      </div>
-      <nav class="menu">
-        <div class="item"><a href="index.php">TRANG CHỦ</a></div>
-        <div class="item"><a href="store.php">CỬA HÀNG</a></div>
-        <div class="item"><a href="#wp-products">SẢN PHẨM</a></div>
-        <div class="item"><a href="Product.php">VỀ CHÚNG TÔI</a></div>
-        <div class="item"><a href="#contact">LIÊN HỆ</a></div>
-        <div class="item"><a href="view_cart.php">🛒 Giỏ hàng</a></div>
-         <?php if(isset($_SESSION['username'])): ?>
-          <div class="item"><a href="logout.php">Đăng xuất (<?= $_SESSION['username']?>)</a></div>
-        <?php else: ?>
-          <div class="item"><a href="login.php">Đăng nhập</a></div>
-        <?php endif; ?>
-      </nav>
+  <div class="container">
+    <div class="logo">
+      <h1>ĂN KHI ĐÓI</h1>
+      <p>Ăn ngon – Sống khỏe</p>
     </div>
-  </header>
+    <nav>
+      <a href="index.php">TRANG CHỦ</a>
+      <a href="store.php">CỬA HÀNG</a>
+      <a href="shop.php">SẢN PHẨM</a>
+      <a href="about_store.php">VỀ CHÚNG TÔI</a>
+      <a href="contact.php">LIÊN HỆ</a>
+      <a href="view_cart.php">🛒 Giỏ hàng</a>
+
+      <?php if(isset($_SESSION['username'])): ?>
+  <a href="account/account.php">👤 <?= htmlspecialchars($_SESSION['username']) ?></a>
+  <a href="logout.php">Đăng xuất</a>
+<?php else: ?>
+  <a href="login.php">Đăng nhập</a>
+  <a href="register.php">Đăng ký</a>
+<?php endif; ?>
+
+    </nav>
+  </div>
+</header>
   <div class="about-store">
   <h2>✨ Giới thiệu về Ăn Khi Đói</h2>
 
@@ -182,6 +187,6 @@ function showSlides() {
   setTimeout(showSlides, 4000); // đổi ảnh sau 4s
 }
 </script>
-
+<?php include_once "footer.php"; ?>
 </body>
 </html>
