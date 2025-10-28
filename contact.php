@@ -18,30 +18,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <body>
   <!-- Header -->
 <header>
-  <div class="container">
-    <div class="logo">
-      <h1>ĂN KHI ĐÓI</h1>
-      <p>Ăn ngon – Sống khỏe</p>
+    <div class="container">
+        <div class="logo">
+            <h1>ĂN KHI ĐÓI</h1>
+            <p>Ăn ngon – Sống khỏe</p>
+        </div>
+        <nav>
+            <a href="index.php">TRANG CHỦ</a>
+            <a href="store.php">CỬA HÀNG</a>
+            <a href="shop.php">SẢN PHẨM</a>
+            <a href="about_store.php">VỀ CHÚNG TÔI</a>
+            <a href="contact.php">LIÊN HỆ</a>
+            <a href="view_cart.php">🛒 Giỏ hàng</a>
+
+            <?php if(isset($_SESSION['username'])): ?>
+                <a href="account/account.php" style="color: #ffb84d; font-weight: bold;">
+                    Xin chào, <?= htmlspecialchars($_SESSION['username']) ?>
+                </a>
+                <a href="logout.php">Đăng xuất</a>
+            <?php else: ?>
+                <a href="login.php">Đăng nhập</a>
+                <a href="register.php">Đăng ký</a>
+            <?php endif; ?>
+
+        </nav>
     </div>
-    <nav>
-      <a href="index.php">TRANG CHỦ</a>
-      <a href="store.php">CỬA HÀNG</a>
-      <a href="shop.php">SẢN PHẨM</a>
-      <a href="about_store.php">VỀ CHÚNG TÔI</a>
-      <a href="contact.php">LIÊN HỆ</a>
-      <a href="view_cart.php">🛒 Giỏ hàng</a>
-
-      <?php if(isset($_SESSION['username'])): ?>
-  <a href="account/account.php">👤 <?= htmlspecialchars($_SESSION['username']) ?></a>
-  <a href="logout.php">Đăng xuất</a>
-<?php else: ?>
-  <a href="login.php">Đăng nhập</a>
-  <a href="register.php">Đăng ký</a>
-<?php endif; ?>
-
-    </nav>
-  </div>
 </header>
+
 
 <h1>Liên hệ với chúng tôi</h1>
 <section class="contact-section" id="contact">
