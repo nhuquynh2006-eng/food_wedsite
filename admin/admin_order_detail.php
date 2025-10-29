@@ -9,42 +9,70 @@ if ($order_id <= 0) {
     exit; 
 }
 
-// === LOGIC CẬP NHẬT TRẠNG THÁI THANH TOÁN (PAYMENTS.STATUS) ===
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment_status'])) {
-    $new_payment_status = trim($_POST['payment_status']);
+// === LOGIC XỬ LÝ POST: CẬP NHẬT TRẠNG THÁI (ĐƠN HÀNG, THANH TOÁN, MEMBERSHIP) ===
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $success_redirect = "admin_order_detail.php?id=" . $order_id;
     
-    // Sử dụng Prepared Statement để cập nhật trạng thái thanh toán trong bảng payments
-    $stmt_update_payment = $conn->prepare("UPDATE payments SET status = ? WHERE order_id = ?");
-    
-    if ($stmt_update_payment) {
-        $stmt_update_payment->bind_param("si", $new_payment_status, $order_id);
-        if ($stmt_update_payment->execute()) {
-            // Chuyển hướng về chính file admin_order_detail.php
-            header("Location: admin_order_detail.php?id=" . $order_id); 
+    // A. Cập nhật Trạng thái Thanh toán (payments.status)
+    if (isset($_POST['update_payment_status'])) {
+        $new_payment_status = trim($_POST['payment_status']);
+        $stmt_update = $conn->prepare("UPDATE payments SET status = ? WHERE order_id = ?");
+        if ($stmt_update) {
+            $stmt_update->bind_param("si", $new_payment_status, $order_id);
+            $stmt_update->execute();
+            $stmt_update->close();
+            header("Location: " . $success_redirect); // Chuyển hướng để refresh dữ liệu
             exit;
-        } else {
-             // Tùy chọn: Thêm debug lỗi SQL nếu cần
-             // die("Lỗi cập nhật SQL: " . $stmt_update_payment->error);
         }
-        $stmt_update_payment->close();
+    }
+    
+    // B. Cập nhật Trạng thái Đơn hàng (orders.status)
+    if (isset($_POST['update_order_status'])) {
+        $new_order_status = trim($_POST['order_status']);
+        $stmt_update = $conn->prepare("UPDATE orders SET status = ? WHERE id = ?");
+        if ($stmt_update) {
+            $stmt_update->bind_param("si", $new_order_status, $order_id);
+            $stmt_update->execute();
+            $stmt_update->close();
+            header("Location: " . $success_redirect); // Chuyển hướng để refresh dữ liệu
+            exit;
+        }
+    }
+    
+    // C. Cập nhật Cấp độ Khách hàng (customers.membership)
+    if (isset($_POST['update_customer_level'])) {
+        $new_level = trim($_POST['customer_level']);
+        $customer_id = intval($_POST['customer_id']); 
+        
+        $stmt_update = $conn->prepare("UPDATE customers SET membership = ? WHERE id = ?");
+        if ($stmt_update && $customer_id > 0) {
+            $stmt_update->bind_param("si", $new_level, $customer_id);
+            $stmt_update->execute();
+            $stmt_update->close();
+            header("Location: " . $success_redirect); // Chuyển hướng để refresh dữ liệu
+            exit;
+        }
     }
 }
 // ===============================================================
 
-// 2. TRUY VẤN CHI TIẾT ĐƠN HÀNG VÀ TẤT CẢ THÔNG TIN KHÁCH HÀNG (Dùng LEFT JOIN)
+// 2. TRUY VẤN CHI TIẾT ĐƠN HÀNG VÀ TẤT CẢ THÔNG TIN KHÁCH HÀNG (LẤY customer_id VÀ membership)
 $stmt = $conn->prepare("
     SELECT 
         o.*, 
         u.username,
+        c.id AS customer_id, 
         c.full_name, 
         c.phone, 
         c.address,
+        c.membership AS customer_level, /* Lấy cột membership */
         p.method AS payment_method,
-        p.status AS payment_status /* Lấy trạng thái thanh toán */
+        p.status AS payment_status
     FROM orders o 
     JOIN customers c ON o.customer_id=c.id 
     JOIN users u ON c.user_id=u.id 
-    LEFT JOIN payments p ON p.order_id=o.id /* Đổi thành LEFT JOIN */
+    LEFT JOIN payments p ON p.order_id=o.id 
     WHERE o.id = ? LIMIT 1
 ");
 
@@ -61,10 +89,10 @@ if (!$orderQ || $orderQ->num_rows == 0) {
 $order = $orderQ->fetch_assoc();
 $stmt->close();
 
-// Nếu không tìm thấy payment (do LEFT JOIN), gán giá trị mặc định để tránh lỗi
+// Gán giá trị mặc định nếu không có payment
 if (!isset($order['payment_status'])) {
     $order['payment_method'] = 'Chưa có thông tin';
-    $order['payment_status'] = ''; // Gán rỗng để select không bị lỗi
+    $order['payment_status'] = ''; 
 }
 
 // 3. TRUY VẤN CHI TIẾT MÓN HÀNG
@@ -86,8 +114,23 @@ $items = $conn->query("SELECT oi.*, f.name FROM order_items oi JOIN foods f ON o
       <p>
         <strong style="color: #5d4037;">Mã đơn:</strong> #<?= $order['id'] ?> 
         — <strong style="color: #5d4037;">Ngày mua:</strong> <?= date('d/m/Y H:i', strtotime($order['created_at'])) ?>
-        — <strong style="color: #5d4037;">Trạng thái ĐH:</strong> <span style="font-weight:bold; color:<?= $order['status']=='completed'?'green':'#ffb84d' ?>"><?= $order['status'] ?></span>
       </p>
+      
+      <form method="post" style="margin-bottom: 20px; display:flex; gap: 8px; align-items:center; background:#fff3cd; padding: 10px; border: 1px solid #ffeeba; border-radius: 4px;">
+          <strong style="color: #5d4037;">Trạng thái ĐH:</strong> 
+          <span style="font-weight:bold; margin-right: 15px; color:<?= $order['status']=='completed'?'green':($order['status']=='pending'?'#ffb84d':'#007bff') ?>">
+              <?= ucfirst($order['status']) ?>
+          </span>
+          
+          <label for="o_status" style="font-weight: bold; color: #5d4037;">Cập nhật ĐH:</label>
+          <select name="order_status" id="o_status">
+              <?php $order_statuses = ['pending', 'processing', 'completed', 'canceled']; ?>
+              <?php foreach ($order_statuses as $status): ?>
+                  <option value="<?= $status ?>" <?= $order['status']==$status?'selected':'' ?>><?= ucfirst($status) ?></option>
+              <?php endforeach; ?>
+          </select>
+          <button name="update_order_status" class="akd-btn akd-btn-primary" style="padding: 8px 12px; font-size: 0.9em; background-color: #007bff;">Lưu Trạng thái ĐH</button>
+      </form>
       <hr>
       
       <div style="display:flex; gap: 40px;">
@@ -97,6 +140,9 @@ $items = $conn->query("SELECT oi.*, f.name FROM order_items oi JOIN foods f ON o
               <p><strong style="color: #5d4037;">Họ tên:</strong> <?= htmlspecialchars($order['full_name']) ?></p>
               <p><strong style="color: #5d4037;">SĐT:</strong> <?= htmlspecialchars($order['phone']) ?></p>
               <p><strong style="color: #5d4037;">Địa chỉ:</strong> <?= htmlspecialchars($order['address']) ?></p>
+              
+              <h4 style="margin-top: 15px; margin-bottom: 5px; color: #5d4037;">Cấp độ TV: <span style="color:green; font-weight: bold; text-transform: capitalize;"><?= htmlspecialchars($order['customer_level'] ?? 'normal') ?></span></h4>
+              
           </div>
           <div>
               <h3 style="color: #5d4037;">Thông tin Thanh toán</h3>
@@ -105,15 +151,15 @@ $items = $conn->query("SELECT oi.*, f.name FROM order_items oi JOIN foods f ON o
 
               <form method="post" style="margin-top: 10px; display:flex; gap: 8px; align-items:center;">
                   <input type="hidden" name="order_id" value="<?= $order['id'] ?>"> 
-                  <label for="p_status" style="font-weight: bold; color: #5d4037;">Trạng thái:</label>
+                  <label for="p_status" style="font-weight: bold; color: #5d4037;">Trạng thái TT:</label>
                   <select name="payment_status" id="p_status">
                       <option value="pending" <?= $order['payment_status']=='pending'?'selected':'' ?>>Đang chờ</option>
-                      <option value="success" <?= $order['payment_status']=='success'?'selected':'' ?>>Thành công</option>
+                      <option value="paid" <?= $order['payment_status']=='paid'?'selected':'' ?>>Thành công</option>
                       <option value="failed" <?= $order['payment_status']=='failed'?'selected':'' ?>>Thất bại</option>
                       <option value="refunded" <?= $order['payment_status']=='refunded'?'selected':'' ?>>Đã hoàn tiền</option>
                       <option value="" <?= $order['payment_status']==''?'selected':'' ?>>-- Chọn trạng thái --</option>
                   </select>
-                  <button name="update_payment_status" class="akd-btn akd-btn-primary" style="padding: 8px 12px; font-size: 0.9em;">Cập nhật</button>
+                  <button name="update_payment_status" class="akd-btn akd-btn-primary" style="padding: 8px 12px; font-size: 0.9em;">Cập nhật TT</button>
               </form>
           </div>
       </div>

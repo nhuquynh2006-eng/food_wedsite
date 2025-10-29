@@ -5,7 +5,7 @@ if ($conn->connect_error) die("Kết nối thất bại: " . $conn->connect_erro
 
 // Nếu chưa login -> chuyển về trang đăng nhập
 if (!isset($_SESSION['user_id']) && !isset($_SESSION['username'])) {
-    header("Location: account.php");
+    header("Location: account/account.php");
     exit;
 }
 
