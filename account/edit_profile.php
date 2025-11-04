@@ -2,40 +2,114 @@
 include '../config.php';
 session_start();
 
-// 🧩 Kiểm tra đăng nhập
+// 1. Kiểm tra đăng nhập
 if (!isset($_SESSION['username'])) {
     header("Location: ../login.php");
     exit;
 }
 
 $username = $_SESSION['username'];
+$user = null;
+$customer_data = [
+    'full_name' => '', // Giá trị mặc định rỗng nếu chưa có record customer
+    'phone' => '',
+    'address' => '',
+];
 
-// 🧩 Lấy thông tin user hiện tại
-$stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
-$stmt->bind_param("s", $username);
-$stmt->execute();
-$result = $stmt->get_result();
-$user = $result->fetch_assoc();
-$stmt->close();
+// 2. LẤY TẤT CẢ THÔNG TIN USER VÀ CUSTOMER
+$stmt = $conn->prepare("
+    SELECT 
+        u.*, 
+        c.full_name, 
+        c.phone, 
+        c.address 
+    FROM users u
+    LEFT JOIN customers c ON u.id = c.user_id 
+    WHERE u.username = ? LIMIT 1
+");
 
-// 🧩 Nếu người dùng submit form cập nhật
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+if ($stmt) {
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $data = $result->fetch_assoc();
+        $user = $data; // Chứa dữ liệu users (id, username, email, password)
+        
+        // Gán dữ liệu customer (nếu tồn tại)
+        if ($data['full_name'] !== null) {
+            $customer_data['full_name'] = $data['full_name'];
+            $customer_data['phone'] = $data['phone'];
+            $customer_data['address'] = $data['address'];
+        }
+    } else {
+        // Lỗi: Không tìm thấy user
+        header("Location: ../logout.php"); 
+        exit;
+    }
+    $stmt->close();
+}
+
+// Lấy user_id hiện tại sau khi đã fetch
+$current_user_id = $user['id'] ?? 0;
+
+// =========================================================
+// 🧩 LOGIC XỬ LÝ POST: CẬP NHẬT (KHÔNG ĐỔI)
+// =========================================================
+if ($_SERVER["REQUEST_METHOD"] === "POST" && $current_user_id > 0) {
     $new_username = $_POST['username'];
     $new_email = $_POST['email'];
+    $new_password = $_POST['password']; 
+    
+    $new_full_name = $_POST['full_name'];
+    $new_phone = $_POST['phone'];
+    $new_address = $_POST['address'];
 
-    // Cập nhật vào database
-    $update = $conn->prepare("UPDATE users SET username = ?, email = ? WHERE username = ?");
-    $update->bind_param("sss", $new_username, $new_email, $username);
-    $update->execute();
-    $update->close();
+    // Bắt đầu Transaction
+    $conn->begin_transaction();
 
-    // Cập nhật lại session
-    $_SESSION['username'] = $new_username;
+    try {
+        // 1. CẬP NHẬT BẢNG USERS 
+        $update_user = $conn->prepare("UPDATE users SET username = ?, email = ?, password = ? WHERE id = ?");
+        if (!$update_user) throw new Exception("Prepare user update failed: " . $conn->error);
+        $update_user->bind_param("sssi", $new_username, $new_email, $new_password, $current_user_id);
+        if (!$update_user->execute()) throw new Exception("Execute user update failed: " . $update_user->error);
+        $update_user->close();
 
-    // Quay về trang account với thông báo thành công
-    header("Location: account.php?success=1");
-    exit;
+        // 2. CẬP NHẬT/TẠO MỚI BẢNG CUSTOMERS
+        // Kiểm tra xem record customer đã tồn tại chưa
+        $check_customer = $conn->query("SELECT id FROM customers WHERE user_id = {$current_user_id}");
+        
+        if ($check_customer->num_rows > 0) {
+            // Cập nhật record đã tồn tại
+            $sql_customer = "UPDATE customers SET full_name = ?, phone = ?, address = ? WHERE user_id = ?";
+        } else {
+            // Tạo record mới nếu chưa tồn tại (cho user mới đăng ký)
+            $sql_customer = "INSERT INTO customers (full_name, phone, address, user_id) VALUES (?, ?, ?, ?)";
+        }
+
+        $update_customer = $conn->prepare($sql_customer);
+        if (!$update_customer) throw new Exception("Prepare customer update failed: " . $conn->error);
+        $update_customer->bind_param("sssi", $new_full_name, $new_phone, $new_address, $current_user_id);
+        if (!$update_customer->execute()) throw new Exception("Execute customer update failed: " . $update_customer->error);
+        $update_customer->close();
+
+        // Hoàn tất Transaction
+        $conn->commit();
+        
+        // Cập nhật lại session và chuyển hướng
+        $_SESSION['username'] = $new_username;
+        echo "<script>alert('Cập nhật thông tin thành công!'); window.location='account.php';</script>";
+        exit;
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        // Xử lý lỗi
+        die("Lỗi cập nhật: " . $e->getMessage());
+    }
 }
+// =========================================================
 ?>
 
 <!DOCTYPE html>
@@ -111,13 +185,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <h2>✏️ Chỉnh sửa thông tin cá nhân</h2>
     <form method="POST">
       <label for="username">Tên đăng nhập</label>
-      <input type="text" id="username" name="username" value="<?= htmlspecialchars($user['username']) ?>" required>
+      <input type="text" id="username" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" required>
 
       <label for="email">Email</label>
-      <input type="email" id="email" name="email" value="<?= htmlspecialchars($user['email']) ?>" required>
+      <input type="email" id="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
 
       <label for="password">Password</label>
-      <input type="password" id="password" name="password" value="<?= htmlspecialchars($user['password']) ?>" required>
+      <input type="password" id="password" name="password" value="<?= htmlspecialchars($user['password'] ?? '') ?>" required>
+      
+      <hr style="margin: 20px 0;">
+      
+      <label for="full_name">Họ và Tên</label>
+      <input type="text" id="full_name" name="full_name" value="<?= htmlspecialchars($customer_data['full_name']) ?>" required>
+      
+      <label for="phone">Số điện thoại</label>
+      <input type="tel" id="phone" name="phone" value="<?= htmlspecialchars($customer_data['phone']) ?>" required>
+      
+      <label for="address">Địa chỉ Mặc định</label>
+      <input type="text" id="address" name="address" value="<?= htmlspecialchars($customer_data['address']) ?>" required>
 
       <button type="submit"> Lưu thay đổi</button>
     </form>

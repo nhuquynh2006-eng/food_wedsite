@@ -28,6 +28,15 @@ session_start();
       <a href="contact.php">LIÊN HỆ</a>
       <a href="view_cart.php">🛒 Giỏ hàng</a>
 
+      <form action="search_results.php" method="get" class="search-form-header" style="display:flex; align-items:center;">
+            <input type="search" name="q" placeholder="Tìm món ăn..." required 
+                   style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px;">
+            <button type="submit" 
+                    style="background: #701f1f; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-left: 5px;">
+                Tìm
+            </button>
+        </form>
+
      <?php if(isset($_SESSION['username'])): ?>
         <a href="account/account.php" style="color: #3e2723; font-weight: bold;">
           Xin chào, <?= htmlspecialchars($_SESSION['username']) ?>
@@ -99,4 +108,15 @@ session_start();
 </div>
 <?php include_once "footer.php"; ?>
 </body>
+<script type="text/javascript">
+    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6909b2e623927319492bd62e/1j96u5lrb';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
 </html>

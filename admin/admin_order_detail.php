@@ -1,6 +1,6 @@
 <?php
 include '../config.php';
-include __DIR__ . '/_auth.php';
+include __DIR__ . '/_auth.php'; // Đảm bảo Admin đã đăng nhập
 
 // 1. Lấy và kiểm tra order_id
 $order_id = intval($_GET['id'] ?? 0);
@@ -57,16 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 // ===============================================================
 
-// 2. TRUY VẤN CHI TIẾT ĐƠN HÀNG VÀ TẤT CẢ THÔNG TIN KHÁCH HÀNG (LẤY customer_id VÀ membership)
+// 2. TRUY VẤN CHI TIẾT ĐƠN HÀNG VÀ TẤT CẢ THÔNG TIN KHÁCH HÀNG
 $stmt = $conn->prepare("
     SELECT 
         o.*, 
+        o.shipping_address, /* <<< Lấy địa chỉ GIAO HÀNG */
         u.username,
         c.id AS customer_id, 
         c.full_name, 
         c.phone, 
-        c.address,
-        c.membership AS customer_level, /* Lấy cột membership */
+        c.address AS default_address, /* Lấy địa chỉ MẶC ĐỊNH (dùng cho tham khảo, tránh lỗi) */
+        c.membership AS customer_level, 
         p.method AS payment_method,
         p.status AS payment_status
     FROM orders o 
@@ -89,13 +90,14 @@ if (!$orderQ || $orderQ->num_rows == 0) {
 $order = $orderQ->fetch_assoc();
 $stmt->close();
 
-// Gán giá trị mặc định nếu không có payment
+// Gán giá trị mặc định nếu không có payment (tránh lỗi)
 if (!isset($order['payment_status'])) {
     $order['payment_method'] = 'Chưa có thông tin';
     $order['payment_status'] = ''; 
 }
 
 // 3. TRUY VẤN CHI TIẾT MÓN HÀNG
+// Chú ý: Cần sử dụng Prepared Statement cho truy vấn này để bảo mật hơn, nhưng giữ nguyên logic cũ của bạn
 $items = $conn->query("SELECT oi.*, f.name FROM order_items oi JOIN foods f ON oi.food_id=f.id WHERE oi.order_id=$order_id");
 ?>
 <!DOCTYPE html>
@@ -139,11 +141,19 @@ $items = $conn->query("SELECT oi.*, f.name FROM order_items oi JOIN foods f ON o
               <p><strong style="color: #5d4037;">Username:</strong> <?= htmlspecialchars($order['username']) ?></p>
               <p><strong style="color: #5d4037;">Họ tên:</strong> <?= htmlspecialchars($order['full_name']) ?></p>
               <p><strong style="color: #5d4037;">SĐT:</strong> <?= htmlspecialchars($order['phone']) ?></p>
-              <p><strong style="color: #5d4037;">Địa chỉ:</strong> <?= htmlspecialchars($order['address']) ?></p>
               
-              <h4 style="margin-top: 15px; margin-bottom: 5px; color: #5d4037;">Cấp độ TV: <span style="color:green; font-weight: bold; text-transform: capitalize;"><?= htmlspecialchars($order['customer_level'] ?? 'normal') ?></span></h4>
+              <h4 style="color: #701f1f; margin-top: 20px; margin-bottom: 5px; border-bottom: 2px solid #701f1f; padding-bottom: 5px;">
+                  📍 Địa chỉ Giao hàng (Đơn hàng này)
+              </h4>
+              <p style="font-weight: bold; color: #3e2723; background: #fff8e1; padding: 10px; border-left: 5px solid #701f1f; border-radius: 4px;">
+                  <?= nl2br(htmlspecialchars($order['shipping_address'])) ?>
+              </p>
               
+              <h4 style="margin-top: 20px; margin-bottom: 5px; color: #5d4037;">Cấp độ TV: 
+                  <span style="color:green; font-weight: bold; text-transform: capitalize;"><?= htmlspecialchars($order['customer_level'] ?? 'normal') ?></span>
+              </h4>
           </div>
+          
           <div>
               <h3 style="color: #5d4037;">Thông tin Thanh toán</h3>
               <p><strong style="color: #5d4037;">Tổng tiền:</strong> <span style="color:red; font-size:1.1em;"><?= number_format($order['total'],0,',','.') ?>đ</span></p>

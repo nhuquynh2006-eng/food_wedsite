@@ -85,18 +85,15 @@ $stmt_items->close();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Lấy dữ liệu từ form
-    // LƯU Ý: Phải sử dụng giá trị METHOD TỪ BẢNG PAYMENTS của bạn (cash, credit_card, momo, zalo_pay)
     $payment_method_code = trim($_POST['payment_method'] ?? 'cash'); 
+    $post_address = trim($_POST['address'] ?? ''); // Chỉ lấy địa chỉ giao hàng
     
-    $post_name = trim($_POST['name'] ?? '');
-    $post_phone = trim($_POST['phone'] ?? '');
-    $post_address = trim($_POST['address'] ?? '');
     $order_status = 'pending';
-    $payment_status = 'pending'; // Trạng thái thanh toán ban đầu
+    $payment_status = 'pending'; 
 
-    // Kiểm tra các trường bắt buộc
-    if (empty($post_name) || empty($post_phone) || empty($post_address)) {
-         echo "<script>alert('Vui lòng điền đầy đủ Họ tên, Số điện thoại và Địa chỉ.');window.location='checkout.php';</script>";
+    // Kiểm tra trường bắt buộc: Địa chỉ giao hàng
+    if (empty($post_address)) {
+         echo "<script>alert('Vui lòng điền Địa chỉ giao hàng.');window.location='checkout.php';</script>";
          exit;
     }
     
@@ -104,27 +101,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $conn->begin_transaction();
 
     try {
-        // 4. CẬP NHẬT THÔNG TIN GIAO HÀNG VÀO BẢNG customers
-        $stmt_update_customer = $conn->prepare("UPDATE customers SET full_name = ?, phone = ?, address = ? WHERE id = ?");
-        if (!$stmt_update_customer) throw new Exception("Prepare update customer failed: " . $conn->error);
         
-        $stmt_update_customer->bind_param("sssi", $post_name, $post_phone, $post_address, $customer_id);
-        if (!$stmt_update_customer->execute()) throw new Exception("Execute update customer failed: " . $stmt_update_customer->error);
-        $stmt_update_customer->close();
+        // =================================================================
+        // >> BƯỚC NÀY ĐÃ ĐƯỢC BỎ: KHÔNG CẬP NHẬT FULL_NAME, PHONE VÀ ADDRESS
+        // >> TRONG BẢNG CUSTOMERS KHI THANH TOÁN.
+        // =================================================================
 
-        // 5. TẠO ĐƠN HÀNG MỚI (ORDERS) - Chỉ chèn các cột hiện có: customer_id, total, status
-        // Không chèn payment_method vì nó nằm trong bảng payments
-        $stmt_order = $conn->prepare("INSERT INTO orders (customer_id, total, status) 
-                                     VALUES (?, ?, ?)");
+        // 5. TẠO ĐƠN HÀNG MỚI (ORDERS) - Thêm cột shipping_address
+        $stmt_order = $conn->prepare("INSERT INTO orders (customer_id, shipping_address, total, status) 
+                                     VALUES (?, ?, ?, ?)");
         if (!$stmt_order) throw new Exception("Prepare order failed: " . $conn->error);
         
-        $stmt_order->bind_param("ids", $customer_id, $total, $order_status);
+        // Sử dụng $post_address từ form để lưu địa chỉ GIAO HÀNG cho đơn hàng này
+        $stmt_order->bind_param("isds", $customer_id, $post_address, $total, $order_status);
         if (!$stmt_order->execute()) throw new Exception("Execute order failed: " . $stmt_order->error);
         $order_id = $conn->insert_id;
         $stmt_order->close();
         
         // 5B. TẠO THÔNG TIN THANH TOÁN VÀO BẢNG PAYMENTS
-        // Dựa trên cấu trúc bảng Payments của bạn: order_id, amount, method, status
         $stmt_payment = $conn->prepare("INSERT INTO payments (order_id, amount, method, status)
                                        VALUES (?, ?, ?, ?)");
         if (!$stmt_payment) throw new Exception("Prepare payment failed: " . $conn->error);
@@ -133,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$stmt_payment->execute()) throw new Exception("Execute payment failed: " . $stmt_payment->error);
         $stmt_payment->close();
 
-        // 6. LƯU CHI TIẾT TỪNG MÓN HÀNG (order_items)
+        // 6. LƯU CHI TIẾT TỪNG MÓN HÀNG (order_items) - Logic không đổi
         $stmt_item = $conn->prepare("INSERT INTO order_items (order_id, food_id, quantity, price)
                                     VALUES (?, ?, ?, ?)");
         if (!$stmt_item) throw new Exception("Prepare item failed: " . $conn->error);
@@ -158,14 +152,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Hoàn tất Transaction
         $conn->commit();
         
-        // THÔNG BÁO THÀNH CÔNG VÀ CHUYỂN HƯỚNG
         echo "<script>alert('✅ Đặt hàng thành công! Đơn hàng #" . $order_id . " của bạn đang được xử lý.');window.location='index.php';</script>";
         exit;
 
     } catch (Exception $e) {
-        // Nếu có lỗi, Rollback và báo lỗi
         $conn->rollback();
-        $errorMessage = "❌ Lỗi khi đặt hàng: " . $e->getMessage() . " - SQLSTATE: " . ($conn->sqlstate ?? 'N/A');
+        $errorMessage = "❌ Lỗi khi đặt hàng: " . $e->getMessage();
         echo "<script>alert('" . addslashes($errorMessage) . "');window.location='view_cart.php';</script>";
         exit;
     }
@@ -232,13 +224,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="delivery-info" style="margin: 25px 0; padding: 15px; border: 1px solid #ffb84d; border-radius: 8px; background: #fff8e1;">
         <h3 style="margin-top: 0; color: #3e2723;">🚚 Thông tin nhận hàng (Vui lòng kiểm tra & cập nhật)</h3>
         
+        <p style="color: #701f1f; font-weight: 500;">
+            *Họ tên và SĐT là thông tin cố định trong hồ sơ. Vui lòng vào 
+            <a href="account/edit_profile.php" style="color: blue; text-decoration: underline;">Cập nhật thông tin</a> để thay đổi.
+        </p>
+
         <label for="name" style="display: block; font-weight: bold; margin-bottom: 5px;">Họ và Tên:</label>
-        <input type="text" id="name" name="name" value="<?= $customer_name ?>" required 
-               style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa;" placeholder="Nhập họ và tên đầy đủ">
+        <input type="text" id="name" name="name_static" value="<?= $customer_name ?>" required 
+               readonly disabled
+               style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa; background-color: #e9ecef; color: #555;" placeholder="Họ và tên đầy đủ">
 
         <label for="phone" style="display: block; font-weight: bold; margin-bottom: 5px;">Số điện thoại:</label>
-        <input type="tel" id="phone" name="phone" value="<?= $customer_phone ?>" required 
-               style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa;" placeholder="Nhập số điện thoại">
+        <input type="tel" id="phone" name="phone_static" value="<?= $customer_phone ?>" required 
+               readonly disabled
+               style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa; background-color: #e9ecef; color: #555;" placeholder="Số điện thoại">
 
         <label for="address" style="display: block; font-weight: bold; margin-bottom: 5px;">Địa chỉ giao hàng:</label>
         <input type="text" id="address" name="address" value="<?= $customer_address ?>" required 
