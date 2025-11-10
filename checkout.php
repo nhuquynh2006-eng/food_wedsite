@@ -85,6 +85,7 @@ $stmt_items->close();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Lấy dữ liệu từ form
+    // Đã thay đổi cách lấy dữ liệu radio button
     $payment_method_code = trim($_POST['payment_method'] ?? 'cash'); 
     $post_address = trim($_POST['address'] ?? ''); // Chỉ lấy địa chỉ giao hàng
     
@@ -97,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // -----------------------------------------------------------------
     // === LOGIC TÍCH HỢP VNPAY: CHUYỂN HƯỚNG SANG CỔNG THANH TOÁN ===
     // -----------------------------------------------------------------
-    if ($payment_method_code === 'vnpay') {
+    if ($payment_method_code === 'vnpay' || $payment_method_code === 'momo' || $payment_method_code === 'zalo_pay') {
         
         // **QUAN TRỌNG:** Lưu TỔNG TIỀN và ĐỊA CHỈ GIAO HÀNG vào SESSION
         // để chúng ta có thể sử dụng chúng trong vnpay_process.php và vnpay_return.php sau này.
@@ -106,29 +107,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'customer_id' => $customer_id, // ID khách hàng
             'cart_id' => $cart_id, // ID giỏ hàng hiện tại
             'shipping_address' => $post_address, // Địa chỉ giao hàng
-            'payment_method' => 'vnpay'
+            'payment_method' => $payment_method_code // Lưu phương thức thanh toán
         ];
 
-        // Tạo Form ẩn để chuyển dữ liệu đến vnpay_process.php
-        // Chúng ta không dùng header() trực tiếp để tránh mất dữ liệu POST quan trọng
+        // Tạo Form ẩn để chuyển dữ liệu đến vnpay_process.php (hoặc cổng tương ứng)
+        // Hiện tại chỉ có VNPay được tích hợp sẵn, các cổng khác sẽ dùng chung logic chuyển hướng.
         ?>
-        <form id="vnpayForm" action="vnpay_payment/vnpay_process.php" method="POST">
-            <input type="hidden" name="total_amount" value="<?= $total ?>">
-            <input type="hidden" name="address" value="<?= htmlspecialchars($post_address) ?>">
-            </form>
-        <script>
-            // Tự động submit form để chuyển hướng
-            document.getElementById('vnpayForm').submit();
-        </script>
+       <form id="paymentForm" action="vnpay_process.php" method="POST">
+    <input type="hidden" name="total_amount" value="<?= $total ?>">
+    <input type="hidden" name="address" value="<?= htmlspecialchars($post_address) ?>">
+    <input type="hidden" name="payment_method" value="<?= $payment_method_code ?>">
+</form>
+<script>document.getElementById('paymentForm').submit();</script>
+
         <?php
         exit; // Ngăn chặn việc tạo đơn hàng ngay lập tức
     }
     // -----------------------------------------------------------------
     
-    // === LOGIC TẠO ĐƠN HÀNG (DÀNH CHO COD HOẶC THANH TOÁN KHÔNG DÙNG API TRỰC TIẾP) ===
+    // === LOGIC TẠO ĐƠN HÀNG (DÀNH CHO COD - Thanh toán khi nhận hàng) ===
     
     $order_status = 'pending';
-    $payment_status = 'pending'; 
+    $payment_status = 'pending'; // COD: Thanh toán chưa hoàn tất
 
     // Bắt đầu Transaction 
     $conn->begin_transaction();
@@ -146,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_order->close();
         
         // 5B. TẠO THÔNG TIN THANH TOÁN VÀO BẢNG PAYMENTS
-        // Lưu ý: payment_status vẫn là 'pending' cho COD, sẽ đổi thành 'paid' khi giao hàng thành công
+        // Lưu ý: payment_status vẫn là 'pending' cho COD
         $stmt_payment = $conn->prepare("INSERT INTO payments (order_id, amount, method, status)
                                          VALUES (?, ?, ?, ?)");
         if (!$stmt_payment) throw new Exception("Prepare payment failed: " . $conn->error);
@@ -180,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Hoàn tất Transaction
         $conn->commit();
         
-        echo "<script>alert('✅ Đặt hàng thành công! Đơn hàng #" . $order_id . " của bạn đang được xử lý.');window.location='index.php';</script>";
+        echo "<script>alert('✅ Đặt hàng thành công! Đơn hàng #" . $order_id . " của bạn đang được xử lý. Bạn đã chọn thanh toán khi nhận hàng (COD).');window.location='index.php';</script>";
         exit;
 
     } catch (Exception $e) {
@@ -197,6 +197,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="UTF-8">
 <title>Thanh toán</title>
 <link rel="stylesheet" href="main.css">
+<style>
+/* Thêm CSS cho giao diện mới */
+.payment-group {
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 15px;
+}
+.payment-group-header {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #3e2723;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #ffb84d;
+    padding-bottom: 5px;
+}
+.payment-option {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.payment-option:hover {
+    background-color: #f7f7f7;
+}
+.payment-option input[type="radio"] {
+    margin-right: 15px;
+    transform: scale(1.2); /* Phóng to radio button */
+}
+.payment-option label {
+    font-weight: 500;
+    flex-grow: 1;
+}
+.payment-option-logo {
+    font-size: 1.2em;
+    margin-right: 8px;
+    color: #ffb84d;
+}
+</style>
 </head>
 <body>
 <header>
@@ -258,29 +298,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <label for="name" style="display: block; font-weight: bold; margin-bottom: 5px;">Họ và Tên:</label>
         <input type="text" id="name" name="name_static" value="<?= $customer_name ?>" required 
-               readonly disabled
-               style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa; background-color: #e9ecef; color: #555;" placeholder="Họ và tên đầy đủ">
+                readonly disabled
+                style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa; background-color: #e9ecef; color: #555;" placeholder="Họ và tên đầy đủ">
 
         <label for="phone" style="display: block; font-weight: bold; margin-bottom: 5px;">Số điện thoại:</label>
         <input type="tel" id="phone" name="phone_static" value="<?= $customer_phone ?>" required 
-               readonly disabled
-               style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa; background-color: #e9ecef; color: #555;" placeholder="Số điện thoại">
+                readonly disabled
+                style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa; background-color: #e9ecef; color: #555;" placeholder="Số điện thoại">
 
         <label for="address" style="display: block; font-weight: bold; margin-bottom: 5px;">Địa chỉ giao hàng:</label>
         <input type="text" id="address" name="address" value="<?= $customer_address ?>" required 
-               style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa;" placeholder="Nhập địa chỉ cụ thể">
+                style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #aaa;" placeholder="Nhập địa chỉ cụ thể">
     </div>
     
-    <div class="payment-selection" style="margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 8px;">
-    <label for="payment_method" style="display: block; font-weight: bold; margin-bottom: 10px; color: #5d4037;">
-        Chọn phương thức thanh toán:
-    </label>
-    <select name="payment_method" id="payment_method" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #aaa; font-size: 16px;">
-        <option value="cash">1. Thanh toán tiền mặt (COD)</option>
-        <option value="vnpay">2. Thanh toán qua VNPay</option>  <option value="momo">3. Thanh toán qua Momo</option>
-        <option value="zalo_pay">4. Thanh toán qua ZaloPay</option>
-    </select>
-</div>
+    <div class="payment-selection">
+        <h3 style="margin-top: 0; color: #5d4037;">💳 Chọn phương thức thanh toán:</h3>
+        
+        <!-- NHÓM THANH TOÁN TẠI CHỖ (OFFLINE) -->
+        <div class="payment-group">
+            <div class="payment-group-header">1. Thanh toán khi nhận hàng (COD)</div>
+            <div class="payment-option">
+                <input type="radio" id="method_cash" name="payment_method" value="cash" checked>
+                <span class="payment-option-logo">💵</span>
+                <label for="method_cash">Thanh toán tiền mặt (COD - Cash on Delivery)</label>
+            </div>
+        </div>
+        
+        <!-- NHÓM THANH TOÁN ONLINE -->
+        <div class="payment-group">
+            <div class="payment-group-header">2. Thanh toán trực tuyến</div>
+            
+            <div class="payment-option">
+                <input type="radio" id="method_vnpay" name="payment_method" value="vnpay">
+                <span class="payment-option-logo">VN</span>
+                <label for="method_vnpay">Thanh toán qua VNPay</label>
+            </div>
+            
+            <div class="payment-option">
+                <input type="radio" id="method_momo" name="payment_method" value="momo">
+                <span class="payment-option-logo">MM</span>
+                <label for="method_momo">Thanh toán qua MoMo (Chưa tích hợp)</label>
+            </div>
+            
+            <div class="payment-option">
+                <input type="radio" id="method_zalo_pay" name="payment_method" value="zalo_pay">
+                <span class="payment-option-logo">Z</span>
+                <label for="method_zalo_pay">Thanh toán qua ZaloPay (Chưa tích hợp)</label>
+            </div>
+        </div>
+        
+    </div>
     
     <div class="total">Tổng cộng: <?= number_format($total, 0, ",", ".") ?>đ</div>
 
