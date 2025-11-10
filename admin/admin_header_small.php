@@ -8,7 +8,8 @@ if (session_status() === PHP_SESSION_NONE) session_start();
     <nav class="akd-nav">
       <a href="admin_dashboard.php">Dashboard</a>
       <a href="admin_products.php">Sản phẩm</a>
-      <a href="admin_orders.php">Đơn hàng</a>
+      <a href="admin_orders.php">Quản lý Đơn hàng</a>
+      <a href="admin_view_feedback.php">Quản lý Đánh giá</a>
       <a href="admin_contacts.php">Liên hệ</a>
       <a href="admin_users.php">Người dùng</a>
       <a class="akd-logout" href="admin_logout.php">Đăng xuất</a>

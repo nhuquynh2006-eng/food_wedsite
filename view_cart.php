@@ -85,7 +85,7 @@ if ($cart_id) {
       <a href="index.php">TRANG CHỦ</a>
       <a href="store.php">CỬA HÀNG</a>
       <a href="shop.php">SẢN PHẨM</a>
-      <a href="about_store.php">VỀ CHÚNG TÔI</a>
+      <a href="food_detail.php">VỀ CHÚNG TÔI</a>
       <a href="contact.php">LIÊN HỆ</a>
       <a href="view_cart.php">🛒 Giỏ hàng</a>
 

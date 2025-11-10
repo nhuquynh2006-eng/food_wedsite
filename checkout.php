@@ -88,25 +88,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payment_method_code = trim($_POST['payment_method'] ?? 'cash'); 
     $post_address = trim($_POST['address'] ?? ''); // Chỉ lấy địa chỉ giao hàng
     
+    // Kiểm tra trường bắt buộc: Địa chỉ giao hàng
+    if (empty($post_address)) {
+        echo "<script>alert('Vui lòng điền Địa chỉ giao hàng.');window.location='checkout.php';</script>";
+        exit;
+    }
+    
+    // -----------------------------------------------------------------
+    // === LOGIC TÍCH HỢP VNPAY: CHUYỂN HƯỚNG SANG CỔNG THANH TOÁN ===
+    // -----------------------------------------------------------------
+    if ($payment_method_code === 'vnpay') {
+        
+        // **QUAN TRỌNG:** Lưu TỔNG TIỀN và ĐỊA CHỈ GIAO HÀNG vào SESSION
+        // để chúng ta có thể sử dụng chúng trong vnpay_process.php và vnpay_return.php sau này.
+        $_SESSION['checkout_temp'] = [
+            'total_amount' => $total, // Tổng tiền cần thanh toán
+            'customer_id' => $customer_id, // ID khách hàng
+            'cart_id' => $cart_id, // ID giỏ hàng hiện tại
+            'shipping_address' => $post_address, // Địa chỉ giao hàng
+            'payment_method' => 'vnpay'
+        ];
+
+        // Tạo Form ẩn để chuyển dữ liệu đến vnpay_process.php
+        // Chúng ta không dùng header() trực tiếp để tránh mất dữ liệu POST quan trọng
+        ?>
+        <form id="vnpayForm" action="vnpay_payment/vnpay_process.php" method="POST">
+            <input type="hidden" name="total_amount" value="<?= $total ?>">
+            <input type="hidden" name="address" value="<?= htmlspecialchars($post_address) ?>">
+            </form>
+        <script>
+            // Tự động submit form để chuyển hướng
+            document.getElementById('vnpayForm').submit();
+        </script>
+        <?php
+        exit; // Ngăn chặn việc tạo đơn hàng ngay lập tức
+    }
+    // -----------------------------------------------------------------
+    
+    // === LOGIC TẠO ĐƠN HÀNG (DÀNH CHO COD HOẶC THANH TOÁN KHÔNG DÙNG API TRỰC TIẾP) ===
+    
     $order_status = 'pending';
     $payment_status = 'pending'; 
 
-    // Kiểm tra trường bắt buộc: Địa chỉ giao hàng
-    if (empty($post_address)) {
-         echo "<script>alert('Vui lòng điền Địa chỉ giao hàng.');window.location='checkout.php';</script>";
-         exit;
-    }
-    
     // Bắt đầu Transaction 
     $conn->begin_transaction();
 
     try {
-        
-        // =================================================================
-        // >> BƯỚC NÀY ĐÃ ĐƯỢC BỎ: KHÔNG CẬP NHẬT FULL_NAME, PHONE VÀ ADDRESS
-        // >> TRONG BẢNG CUSTOMERS KHI THANH TOÁN.
-        // =================================================================
-
         // 5. TẠO ĐƠN HÀNG MỚI (ORDERS) - Thêm cột shipping_address
         $stmt_order = $conn->prepare("INSERT INTO orders (customer_id, shipping_address, total, status) 
                                      VALUES (?, ?, ?, ?)");
@@ -119,8 +146,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_order->close();
         
         // 5B. TẠO THÔNG TIN THANH TOÁN VÀO BẢNG PAYMENTS
+        // Lưu ý: payment_status vẫn là 'pending' cho COD, sẽ đổi thành 'paid' khi giao hàng thành công
         $stmt_payment = $conn->prepare("INSERT INTO payments (order_id, amount, method, status)
-                                       VALUES (?, ?, ?, ?)");
+                                         VALUES (?, ?, ?, ?)");
         if (!$stmt_payment) throw new Exception("Prepare payment failed: " . $conn->error);
         
         $stmt_payment->bind_param("idss", $order_id, $total, $payment_method_code, $payment_status);
@@ -129,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 6. LƯU CHI TIẾT TỪNG MÓN HÀNG (order_items) - Logic không đổi
         $stmt_item = $conn->prepare("INSERT INTO order_items (order_id, food_id, quantity, price)
-                                    VALUES (?, ?, ?, ?)");
+                                     VALUES (?, ?, ?, ?)");
         if (!$stmt_item) throw new Exception("Prepare item failed: " . $conn->error);
 
         foreach ($items as $it) {
@@ -142,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $stmt_item->close();
         
-        // 7. XÓA GIỎ HÀNG SAU KHI THANH TOÁN
+        // 7. XÓA GIỎ HÀNG SAU KHI ĐẶT HÀNG THÀNH CÔNG
         $stmt_delete_cart = $conn->prepare("DELETE FROM cart_items WHERE cart_id = ?");
         if (!$stmt_delete_cart) throw new Exception("Prepare delete cart failed: " . $conn->error);
         $stmt_delete_cart->bind_param("i", $cart_id);
@@ -181,7 +209,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <a href="index.php">TRANG CHỦ</a>
       <a href="store.php">CỬA HÀNG</a>
       <a href="shop.php">SẢN PHẨM</a>
-      <a href="about_store.php">VỀ CHÚNG TÔI</a>
       <a href="contact.php">LIÊN HỆ</a>
       <a href="view_cart.php">🛒 Giỏ hàng</a>
 
@@ -245,16 +272,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
     
     <div class="payment-selection" style="margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 8px;">
-        <label for="payment_method" style="display: block; font-weight: bold; margin-bottom: 10px; color: #5d4037;">
-            Chọn phương thức thanh toán:
-        </label>
-        <select name="payment_method" id="payment_method" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #aaa; font-size: 16px;">
-            <option value="cash">1. Thanh toán tiền mặt (COD)</option>
-            <option value="credit_card">2. Thẻ tín dụng/ghi nợ</option>
-            <option value="momo">3. Thanh toán qua Momo</option>
-            <option value="zalo_pay">4. Thanh toán qua ZaloPay</option>
-        </select>
-    </div>
+    <label for="payment_method" style="display: block; font-weight: bold; margin-bottom: 10px; color: #5d4037;">
+        Chọn phương thức thanh toán:
+    </label>
+    <select name="payment_method" id="payment_method" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #aaa; font-size: 16px;">
+        <option value="cash">1. Thanh toán tiền mặt (COD)</option>
+        <option value="vnpay">2. Thanh toán qua VNPay</option>  <option value="momo">3. Thanh toán qua Momo</option>
+        <option value="zalo_pay">4. Thanh toán qua ZaloPay</option>
+    </select>
+</div>
     
     <div class="total">Tổng cộng: <?= number_format($total, 0, ",", ".") ?>đ</div>
 

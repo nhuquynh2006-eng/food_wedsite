@@ -203,6 +203,20 @@ nav a[href*="register"]:hover {
   font-size: 24px;
   margin: 15px 0;
 }
+#list-products .item button[type="submit"] {
+  /* Màu nền bạn yêu cầu */
+  background-color: #701f1f;
+  /* Màu chữ bạn yêu cầu */
+  color: white;
+  /* Padding bạn yêu cầu */
+  padding: 10px;
+  /* Loại bỏ border */
+  border: none;
+  /* Góc bo tròn bạn yêu cầu */
+  border-radius: 5px;
+  /* Con trỏ */
+  cursor: pointer;
+}
 
 /* ===============================
    🛒 GIỎ HÀNG - ĐÃ CHỈNH SỬA VÀ BỔ SUNG

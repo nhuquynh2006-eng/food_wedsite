@@ -16,9 +16,9 @@ if (isset($_GET['status'])) {
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Liên hệ</title>
-  <link rel="stylesheet" href="main.css">
+  <meta charset="UTF-8">
+  <title>Liên hệ</title>
+  <link rel="stylesheet" href="main.css">
     <style>
         /* Thêm style cơ bản cho form và thông tin liên hệ */
         .contact-section {
@@ -42,7 +42,6 @@ if (isset($_GET['status'])) {
             padding-bottom: 10px;
             margin-bottom: 15px;
         }
-        /* >>> ĐÃ THÊM: KHẮC PHỤC MÀU CHỮ TRẮNG <<< */
         .contact-info p, 
         .contact-info strong {
             color: #333333; /* Màu chữ chính */
@@ -50,7 +49,15 @@ if (isset($_GET['status'])) {
         .contact-info strong {
             color: #5d4037; /* Màu nâu đậm hơn cho các tiêu đề nhỏ */
         }
-        /* >>> KẾT THÚC KHẮC PHỤC MÀU CHỮ TRẮNG <<< */
+        
+        /* === BỔ SUNG: Chỉnh màu cho tiêu đề form === */
+        .contact-form-wrapper h2 {
+            color: #701f1f; /* Màu nâu đậm chủ đạo */
+            font-size: 1.8em;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        /* =========================================== */
 
         .contact-form input, .contact-form textarea {
             width: 100%;
@@ -77,7 +84,6 @@ if (isset($_GET['status'])) {
     </style>
 </head>
 <body>
-<!-- Header -->
 <header>
     <div class="container">
         <div class="logo">
@@ -88,7 +94,6 @@ if (isset($_GET['status'])) {
             <a href="index.php">TRANG CHỦ</a>
             <a href="store.php">CỬA HÀNG</a>
             <a href="shop.php">SẢN PHẨM</a>
-            <a href="about_store.php">VỀ CHÚNG TÔI</a>
             <a href="contact.php">LIÊN HỆ</a>
             <a href="view_cart.php">🛒 Giỏ hàng</a>
 
