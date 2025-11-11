@@ -46,7 +46,7 @@ $stmt->bind_param("ssss", $username, $email, $hashed_password, $token);
                     $mail->Host       = 'smtp.gmail.com';
                     $mail->SMTPAuth   = true;
                     $mail->Username   = '2431540078@vaa.edu.vn'; // thay bằng email của bạn
-                    $mail->Password   = 'ciro gjzn zlce ovqe';    // mật khẩu ứng dụng Gmail
+                    $mail->Password   = '';    // mật khẩu ứng dụng Gmail
                     $mail->SMTPSecure = 'tls';
                     $mail->Port       = 587;
 
