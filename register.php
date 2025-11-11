@@ -1,5 +1,12 @@
 <?php
 include 'config.php';
+require 'phpmailer/src/Exception.php';
+require 'phpmailer/src/PHPMailer.php';
+require 'phpmailer/src/SMTP.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 session_start();
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -8,14 +15,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = trim($_POST['password']);
     $confirm_password = trim($_POST['confirm_password']);
 
-    // Kiểm tra password nhập lại
     if ($password !== $confirm_password) {
         $error = "Mật khẩu nhập lại không khớp!";
     } else {
-        // Mã hóa mật khẩu
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-        // Chuẩn bị query kiểm tra username/email trùng
         $check_sql = "SELECT * FROM users WHERE username=? OR email=?";
         $stmt = $conn->prepare($check_sql);
         $stmt->bind_param("ss", $username, $email);
@@ -25,14 +29,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($result->num_rows > 0) {
             $error = "Tên đăng nhập hoặc email đã tồn tại!";
         } else {
-            // Insert user mới
-            $sql = "INSERT INTO users (username, email, password) VALUES (?, ?, ?)";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("sss", $username, $email, $hashed_password);
+           $sql = "INSERT INTO users (username, email, password, token) VALUES (?, ?, ?, ?)";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("ssss", $username, $email, $hashed_password, $token);
+            $token = bin2hex(random_bytes(16));
 
             if ($stmt->execute()) {
+                // Bật hiện lỗi khi test
+                error_reporting(E_ALL);
+                ini_set('display_errors', 1);
+
+                // === GỬI MAIL CHÀO MỪNG ===
+                $mail = new PHPMailer(true);
+                try {
+                    $mail->isSMTP();
+                    $mail->Host       = 'smtp.gmail.com';
+                    $mail->SMTPAuth   = true;
+                    $mail->Username   = '2431540078@vaa.edu.vn'; // thay bằng email của bạn
+                    $mail->Password   = 'ciro gjzn zlce ovqe';    // mật khẩu ứng dụng Gmail
+                    $mail->SMTPSecure = 'tls';
+                    $mail->Port       = 587;
+
+                    $mail->setFrom('2431540078@vaa.edu.vn', 'ĂN KHI ĐÓI');
+                    $mail->addAddress($email, $username);
+                    $mail->isHTML(true);
+                    $mail->CharSet = 'UTF-8';
+                    $mail->Subject = 'Chào mừng bạn đến với ĂN KHI ĐÓI!';
+                    $mail->Body = "<h3>Xin chào $username!</h3>
+               <p>Bạn đã đăng ký tài khoản trên <b>ĂN KHI ĐÓI</b>.</p>
+               <p>Vui lòng nhấn <a href='http://localhost/food/verify.php?token=$token'>vào đây</a> để kích hoạt tài khoản.</p>";
+
+                    $mail->send();
+                } catch (Exception $e) {
+                    error_log("Không gửi được mail: {$mail->ErrorInfo}");
+                }
+
                 $_SESSION['username'] = $username;
-                header("Location: index.php"); // đăng ký xong chuyển về trang chủ
+                header("Location: index.php");
                 exit();
             } else {
                 $error = "Đăng ký thất bại: " . $conn->error;
@@ -41,6 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="vi">
