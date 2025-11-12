@@ -1,4 +1,4 @@
-/* ===== CSS CHUNG LOGIN & REGISTER ===== */
+/* CSS CHUNG LOGIN & REGISTER (Đã chỉnh sửa) */
 * {
   margin: 0;
   padding: 0;
@@ -6,12 +6,13 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* BACKGROUND & CĂN GIỮA FORM */
 body {
   background: linear-gradient(135deg, #f9f4ef, #f0e68c); /* vàng nhạt dịu */
   height: 100vh;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: center; /* Căn giữa ngang */
+  align-items: center; /* Căn giữa dọc */
 }
 
 /* Form container */
@@ -77,7 +78,7 @@ body {
 }
 
 .auth-container a {
-  color: #d4a373; /* vàng nhạt */
+  color: #701f1f; /* Đổi màu link sang đỏ nâu để dễ nhìn hơn */
   font-weight: bold;
   text-decoration: none;
 }

@@ -114,8 +114,8 @@ $items = $conn->query("SELECT oi.*, f.name FROM order_items oi JOIN foods f ON o
   <div class="akd-card">
     <div class="akd-panel">
       <p>
-        <strong style="color: #5d4037;">Mã đơn:</strong> #<?= $order['id'] ?> 
-        — <strong style="color: #5d4037;">Ngày mua:</strong> <?= date('d/m/Y H:i', strtotime($order['created_at'])) ?>
+        <strong style="color: #5d4037;">Mã đơn:</strong> <span style="color: #000;">#<?= $order['id'] ?>
+        — </span><strong style="color: #5d4037;">Ngày mua:</strong> <span style="color: #000;"><?= date('d/m/Y H:i', strtotime($order['created_at'])) ?>
       </p>
       
       <form method="post" style="margin-bottom: 20px; display:flex; gap: 8px; align-items:center; background:#fff3cd; padding: 10px; border: 1px solid #ffeeba; border-radius: 4px;">
@@ -138,15 +138,15 @@ $items = $conn->query("SELECT oi.*, f.name FROM order_items oi JOIN foods f ON o
       <div style="display:flex; gap: 40px;">
           <div>
               <h3 style="color: #5d4037;">Thông tin Khách hàng</h3>
-              <p><strong style="color: #5d4037;">Username:</strong> <?= htmlspecialchars($order['username']) ?></p>
-              <p><strong style="color: #5d4037;">Họ tên:</strong> <?= htmlspecialchars($order['full_name']) ?></p>
-              <p><strong style="color: #5d4037;">SĐT:</strong> <?= htmlspecialchars($order['phone']) ?></p>
+              <p><strong style="color: #5d4037;">Username:</strong> <span style="color: #000;"><?= htmlspecialchars($order['username']) ?></p>
+              <p><strong style="color: #5d4037;">Họ tên:</strong> <span style="color: #000;"><?= htmlspecialchars($order['full_name']) ?></p>
+              <p><strong style="color: #5d4037;">SĐT:</strong> <span style="color: #000;"><?= htmlspecialchars($order['phone']) ?></p>
               
               <h4 style="color: #701f1f; margin-top: 20px; margin-bottom: 5px; border-bottom: 2px solid #701f1f; padding-bottom: 5px;">
                   📍 Địa chỉ Giao hàng (Đơn hàng này)
               </h4>
               <p style="font-weight: bold; color: #3e2723; background: #fff8e1; padding: 10px; border-left: 5px solid #701f1f; border-radius: 4px;">
-                  <?= nl2br(htmlspecialchars($order['shipping_address'])) ?>
+                  <span style="color: #000;"><?= nl2br(htmlspecialchars($order['shipping_address'])) ?>
               </p>
               
               <h4 style="margin-top: 20px; margin-bottom: 5px; color: #5d4037;">Cấp độ TV: 
@@ -157,7 +157,7 @@ $items = $conn->query("SELECT oi.*, f.name FROM order_items oi JOIN foods f ON o
           <div>
               <h3 style="color: #5d4037;">Thông tin Thanh toán</h3>
               <p><strong style="color: #5d4037;">Tổng tiền:</strong> <span style="color:red; font-size:1.1em;"><?= number_format($order['total'],0,',','.') ?>đ</span></p>
-              <p><strong style="color: #5d4037;">Phương thức:</strong> <?= htmlspecialchars($order['payment_method']) ?></p>
+              <p><strong style="color: #5d4037;">Phương thức:</strong>  <span style="color: #000;"><?= htmlspecialchars($order['payment_method']) ?></p>
 
               <form method="post" style="margin-top: 10px; display:flex; gap: 8px; align-items:center;">
                   <input type="hidden" name="order_id" value="<?= $order['id'] ?>"> 
