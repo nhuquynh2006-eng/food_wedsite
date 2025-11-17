@@ -95,8 +95,7 @@ if (isset($_GET['status'])) {
             <a href="store.php">CỬA HÀNG</a>
             <a href="shop.php">SẢN PHẨM</a>
             <a href="contact.php">LIÊN HỆ</a>
-            <a href="view_cart.php">🛒 Giỏ hàng</a>
-
+            <a href="view_cart.php">🛒 Giỏ hàng <span id="cart-item-count"></span></a>
             <?php if(isset($_SESSION['username'])): ?>
                 <a href="account/account.php" style="color: #ffb84d; font-weight: bold;">
                     Xin chào, <?= htmlspecialchars($_SESSION['username']) ?>
@@ -140,7 +139,82 @@ if (isset($_GET['status'])) {
         </div>
     </div>
 </section>
+<?php 
+$current_cart_items = 0;
+// Lấy số lượng giỏ hàng hiện tại
+if(isset($_SESSION['user_id'])){
+    // Logic cho người dùng đã đăng nhập
+    $user_id = intval($_SESSION['user_id']);
+    $cusQ = $conn->query("SELECT id FROM customers WHERE user_id=$user_id LIMIT 1");
+    if($cusQ && $cusQ->num_rows){
+        $customer_id=intval($cusQ->fetch_assoc()['id']);
+        $cartQ = $conn->query("SELECT id FROM cart WHERE customer_id=$customer_id ORDER BY id DESC LIMIT 1");
+        if($cartQ && $cartQ->num_rows){
+            $cart_id=intval($cartQ->fetch_assoc()['id']);
+            $totalItemsQ = $conn->query("SELECT SUM(quantity) as total FROM cart_items WHERE cart_id=$cart_id");
+            $current_cart_items = $totalItemsQ->fetch_assoc()['total'] ?? 0;
+        }
+    }
+} else if (isset($_SESSION['cart'])) {
+    // Logic cho khách vãng lai
+    foreach($_SESSION['cart'] as $item) $current_cart_items += $item['quantity'];
+}
+?>
 
+<script>
+    // Hàm cập nhật số lượng giỏ hàng trên Header
+    function updateCartCount(count) {
+        const countElement = document.getElementById('cart-item-count');
+        if (countElement) {
+            countElement.textContent = count > 0 ? `(${count})` : '';
+        }
+    }
+
+    // Hàm hiển thị thông báo
+    function showNotification(message, type = 'success') {
+        // Có thể thay thế bằng thư viện thông báo (Toastr, SweetAlert)
+        alert(`${type.toUpperCase()}: ${message}`);
+    }
+
+    // Cập nhật số lượng giỏ hàng ban đầu khi trang tải
+    document.addEventListener('DOMContentLoaded', () => {
+        updateCartCount(<?= $current_cart_items ?>);
+
+        // Lắng nghe sự kiện click cho nút "Thêm vào giỏ hàng"
+        document.querySelectorAll('.add-to-cart').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const foodId = e.target.getAttribute('data-id');
+                const quantity = parseInt(e.target.getAttribute('data-quantity') || 1);
+                
+                // Chuẩn bị dữ liệu gửi đi (JSON)
+                const data = { food_id: foodId, quantity: quantity };
+
+                fetch('add_to_cart.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Cập nhật số lượng giỏ hàng trên Header
+                        updateCartCount(data.cart_total_items);
+                        // Thông báo thành công
+                        showNotification(`Đã thêm ${data.food_name} vào giỏ hàng!`);
+                    } else {
+                        showNotification(data.message || 'Lỗi khi thêm vào giỏ hàng.', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Lỗi kết nối:', error);
+                    showNotification('Lỗi kết nối máy chủ.', 'error');
+                });
+            });
+        });
+    });
+</script>
 <?php include_once "footer.php"; ?>
 </body>
 </html>

@@ -10,7 +10,7 @@ if (!empty($search_query)) {
     // Sử dụng Prepared Statement để bảo mật
     $like_term = '%' . $search_query . '%';
     
-    // Truy vấn để lấy foods và JOIN categories để lấy tên danh mục (nếu cần)
+    // Truy vấn để lấy foods và JOIN categories để lấy tên danh mục
     $sql = "
         SELECT 
             f.id, 
@@ -38,6 +38,26 @@ if (!empty($search_query)) {
         $stmt->close();
     }
 }
+
+// 🚨 LOGIC TÍNH TOÁN SỐ LƯỢNG GIỎ HÀNG (Đưa lên đầu để dùng trong Header)
+$current_cart_items = 0;
+if(isset($_SESSION['user_id'])){
+    // Logic cho người dùng đã đăng nhập
+    $user_id = intval($_SESSION['user_id']);
+    $cusQ = $conn->query("SELECT id FROM customers WHERE user_id=$user_id LIMIT 1");
+    if($cusQ && $cusQ->num_rows){
+        $customer_id=intval($cusQ->fetch_assoc()['id']);
+        $cartQ = $conn->query("SELECT id FROM cart WHERE customer_id=$customer_id ORDER BY id DESC LIMIT 1");
+        if($cartQ && $cartQ->num_rows){
+            $cart_id=intval($cartQ->fetch_assoc()['id']);
+            $totalItemsQ = $conn->query("SELECT SUM(quantity) as total FROM cart_items WHERE cart_id=$cart_id");
+            $current_cart_items = $totalItemsQ->fetch_assoc()['total'] ?? 0;
+        }
+    }
+} else if (isset($_SESSION['cart'])) {
+    // Logic cho khách vãng lai
+    foreach($_SESSION['cart'] as $item) $current_cart_items += $item['quantity'];
+}
 ?>
 
 <!DOCTYPE html>
@@ -64,15 +84,40 @@ if (!empty($search_query)) {
             margin-bottom: 10px;
         }
         .item .name { font-weight: bold; margin: 5px 0; }
-        .item .price { color: red; font-weight: bold; margin: 5px 0; }
+        .item .price { color: #dc3545; font-weight: bold; margin: 5px 0; }
         .item .desc { font-size: 0.9em; color: #666; margin-bottom: 10px; }
-        .item button { 
-            background-color: #701f1f; 
+        
+        /* 🚨 Style cho nút Thêm vào giỏ hàng (AJAX) */
+        .add-to-cart { 
+            background-color: #4A7E64; /* Màu Rêu đậm */
             color: white; 
-            padding: 10px; 
+            padding: 8px 12px; 
             border: none; 
             border-radius: 5px; 
             cursor: pointer;
+            margin-bottom: 5px;
+            width: 100%;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .add-to-cart:hover {
+            background-color: #5B8F77;
+        }
+
+        /* 🚨 Style cho nút Mua Ngay (FORM POST) */
+        .buy-now-form button { 
+            background-color: #701f1f; /* Màu Nâu đậm */
+            color: white; 
+            padding: 8px 12px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .buy-now-form button:hover {
+            background-color: #8a3333;
         }
     </style>
 </head>
@@ -88,11 +133,11 @@ if (!empty($search_query)) {
           <a href="store.php">CỬA HÀNG</a>
           <a href="shop.php">SẢN PHẨM</a>
           <a href="contact.php">LIÊN HỆ</a>
-          <a href="view_cart.php">🛒 Giỏ hàng</a>
+          <a href="view_cart.php">🛒 Giỏ hàng <span id="cart-item-count"><?= $current_cart_items ?></span></a>
           
           <form action="search_results.php" method="get" class="search-form-header" style="display:inline-flex; align-items:center; margin-left: 10px;">
               <input type="search" name="q" placeholder="Tìm món ăn..." required value="<?= htmlspecialchars($search_query) ?>"
-                     style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px; width: 150px;">
+                      style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px; width: 150px;">
               <button type="submit" 
                       style="background: #701f1f; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-left: 5px;">
                   Tìm
@@ -130,24 +175,86 @@ if (!empty($search_query)) {
             </p>
         <?php else: ?>
             <div id="list-products">
-                <?php foreach ($products as $product): ?>
+                <?php foreach ($products as $product): 
+                    $food_id = intval($product['id']);
+                ?>
                 <div class="item">
-                    <img src="ảnh/<?= htmlspecialchars($product['image']) ?>" alt="<?= htmlspecialchars($product['name']) ?>">
-                    <div class="name"><?= htmlspecialchars($product['name']) ?></div>
-                    <div class="desc"><?= htmlspecialchars(substr($product['description'], 0, 100)) ?>...</div>
-                    <div class="price"><?= number_format($product['price'], 0, ",", ".") ?>đ</div>
+                    <a href="food_detail.php?id=<?= $food_id ?>" style="text-decoration: none; color: inherit;">
+                        <img src="ảnh/<?= htmlspecialchars($product['image']) ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                        <div class="name"><?= htmlspecialchars($product['name']) ?></div>
+                        <div class="desc"><?= htmlspecialchars(substr($product['description'], 0, 100)) ?>...</div>
+                        <div class="price"><?= number_format($product['price'], 0, ",", ".") ?>đ</div>
+                    </a>
                     
-                    <form action="add_to_cart.php" method="POST">
-                        <input type="hidden" name="food_id" value="<?= intval($product['id']) ?>">
-                        <button type="submit">🛒 Mua Ngay</button>
+                    <button class="add-to-cart" data-id="<?= $food_id ?>" data-quantity="1">
+                        🛒 Thêm vào giỏ hàng
+                    </button>
+
+                    <form action="add_to_cart.php" method="POST" class="buy-now-form">
+                        <input type="hidden" name="food_id" value="<?= $food_id ?>">
+                        <input type="hidden" name="buy_now" value="1"> 
+                        <button type="submit">💳 Mua Ngay</button>
                     </form>
                 </div>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </div>
+    
+<script>
+    // Hàm cập nhật số lượng giỏ hàng trên Header
+    function updateCartCount(count) {
+        const countElement = document.getElementById('cart-item-count');
+        if (countElement) {
+            countElement.textContent = count > 0 ? `(${count})` : '';
+        }
+    }
 
-    <?php  include_once "footer.php";  ?>
+    // Hàm hiển thị thông báo
+    function showNotification(message, type = 'success') {
+        alert(`${type.toUpperCase()}: ${message}`);
+    }
+
+    // Cập nhật số lượng giỏ hàng ban đầu khi trang tải
+    document.addEventListener('DOMContentLoaded', () => {
+        updateCartCount(<?= $current_cart_items ?>);
+
+        // Lắng nghe sự kiện click cho nút "Thêm vào giỏ hàng"
+        document.querySelectorAll('.add-to-cart').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const foodId = e.target.getAttribute('data-id');
+                const quantity = parseInt(e.target.getAttribute('data-quantity') || 1);
+                
+                // Chuẩn bị dữ liệu gửi đi (JSON)
+                const data = { food_id: foodId, quantity: quantity };
+
+                fetch('add_to_cart.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Cập nhật số lượng giỏ hàng trên Header
+                        updateCartCount(data.cart_total_items);
+                        // Thông báo thành công
+                        showNotification(`Đã thêm ${data.food_name} vào giỏ hàng!`);
+                    } else {
+                        showNotification(data.message || 'Lỗi khi thêm vào giỏ hàng.', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Lỗi kết nối:', error);
+                    showNotification('Lỗi kết nối máy chủ.', 'error');
+                });
+            });
+        });
+    });
+</script>
+    <?php include_once "footer.php"; ?>
 
 </body>
 </html>

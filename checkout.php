@@ -250,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <a href="store.php">CỬA HÀNG</a>
       <a href="shop.php">SẢN PHẨM</a>
       <a href="contact.php">LIÊN HỆ</a>
-      <a href="view_cart.php">🛒 Giỏ hàng</a>
+      
 
       <?php if(isset($_SESSION['username'])): ?>
         <a href="account/account.php" style="color: #ffb84d; font-weight: bold;">

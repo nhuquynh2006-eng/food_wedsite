@@ -33,12 +33,12 @@ if (!$food_data) {
     die("❌ Không tìm thấy món ăn có ID = " . $food_id_hien_tai . ".");
 }
 
-// 2. TRUY VẤN TẤT CẢ FEEDBACK CHO MÓN ĂN HIỆN TẠI (ĐÃ CHỈNH SỬA)
+// 2. TRUY VẤN TẤT CẢ FEEDBACK CHO MÓN ĂN HIỆN TẠI
 $reviews_result = false;
 $stmt_reviews = $conn->prepare("
     SELECT 
         r.rating, r.message, r.created_at, r.reviewer_name,
-        r.response, r.responded_at, -- <<< ĐÃ THÊM CÁC CỘT NÀY VÀO TRUY VẤN
+        r.response, r.responded_at, 
         c.full_name, u.username
     FROM feedback r
     LEFT JOIN customers c ON r.customer_id = c.id
@@ -55,6 +55,25 @@ $stmt_reviews->bind_param("i", $food_id_hien_tai);
 $stmt_reviews->execute();
 $reviews_result = $stmt_reviews->get_result();
 $stmt_reviews->close();
+
+// 🚨 LOGIC TÍNH TOÁN SỐ LƯỢNG GIỎ HÀNG (Đưa lên đầu để dùng trong Header)
+$current_cart_items = 0;
+if(isset($_SESSION['user_id'])){
+    $user_id = intval($_SESSION['user_id']);
+    $cusQ = $conn->query("SELECT id FROM customers WHERE user_id=$user_id LIMIT 1");
+    if($cusQ && $cusQ->num_rows){
+        $customer_id=intval($cusQ->fetch_assoc()['id']);
+        $cartQ = $conn->query("SELECT id FROM cart WHERE customer_id=$customer_id ORDER BY id DESC LIMIT 1");
+        if($cartQ && $cartQ->num_rows){
+            $cart_id=intval($cartQ->fetch_assoc()['id']);
+            $totalItemsQ = $conn->query("SELECT SUM(quantity) as total FROM cart_items WHERE cart_id=$cart_id");
+            $current_cart_items = $totalItemsQ->fetch_assoc()['total'] ?? 0;
+        }
+    }
+} else if (isset($_SESSION['cart'])) {
+    foreach($_SESSION['cart'] as $item) $current_cart_items += $item['quantity'];
+}
+// -------------------------------------------------------------
 ?>
 
 <!DOCTYPE html>
@@ -75,30 +94,25 @@ $stmt_reviews->close();
 .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 4px; font-weight: bold; }
 .alert-success { color: #3c763d; background-color: #dff0d8; border-color: #d6e9c6; }
 .alert-danger { color: #a94442; background-color: #f2dede; border-color: #ebccd1; }
-
 /* CSS MỚI: PHẢN HỒI ADMIN */
 .rating-stars-public {
     color: #ffc107; /* Màu vàng sao */
     font-size: 1.1em;
 }
-
 .admin-reply-box {
     margin-top: 15px;
     padding: 15px;
-    /* Dùng màu nhẹ để nổi bật so với nền trắng */
     background-color: #f7fcf7; 
-    border-left: 4px solid #7a9b7a; /* Màu accent/muted green */
+    border-left: 4px solid #7a9b7a; 
     border-radius: 0 8px 8px 0;
     font-size: 0.95em;
 }
-
 .admin-reply-box .reply-header strong {
-    color: #4b1313; /* Màu nâu đậm */
+    color: #4b1313; 
     font-weight: bold;
     display: block;
     margin-bottom: 5px;
 }
-
 .admin-reply-box .reply-content {
     margin-left: 5px;
     padding-left: 10px;
@@ -106,7 +120,6 @@ $stmt_reviews->close();
     color: #333;
     line-height: 1.5;
 }
-
 .admin-reply-box .reply-date {
     display: block;
     text-align: right;
@@ -114,12 +127,34 @@ $stmt_reviews->close();
     color: #888;
     margin-top: 10px;
 }
-
 .review-separator {
     border: 0;
     height: 1px;
     background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));
     margin: 20px 0;
+}
+
+/* 🚨 CSS CHO NÚT MUA HÀNG TRÊN TRANG CHI TIẾT */
+.add-to-cart-form button {
+    /* Đảm bảo style mới được áp dụng và ghi đè inline style */
+    background-color: #4A7E64 !important; 
+    color: white !important; 
+    padding: 10px 15px !important; 
+    border: none !important; 
+    border-radius: 5px !important; 
+    cursor: pointer !important;
+    font-weight: bold !important;
+    text-transform: uppercase;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 4px #3C6A53;
+}
+.add-to-cart-form button:hover {
+    background-color: #5B8F77 !important;
+}
+.add-to-cart-form button:active {
+    background-color: #3C6A53 !important;
+    transform: translateY(2px); 
+    box-shadow: 0 2px #3C6A53;
 }
 </style>
 </head>
@@ -135,7 +170,7 @@ $stmt_reviews->close();
       <a href="store.php">CỬA HÀNG</a>
       <a href="shop.php">SẢN PHẨM</a>
       <a href="contact.php">LIÊN HỆ</a>
-      <a href="view_cart.php">🛒 Giỏ hàng</a>
+      <a href="view_cart.php">🛒 Giỏ hàng <span id="cart-item-count"><?= $current_cart_items ?></span></a>
 
       <form action="search_results.php" method="get" class="search-form-header" style="display:flex; align-items:center;">
             <input type="search" name="q" placeholder="Tìm món ăn..." required 
@@ -180,14 +215,14 @@ $stmt_reviews->close();
                 <h2><?= htmlspecialchars($food_data['name']) ?></h2>
                 <div class="price"><?= number_format($food_data['price'], 0, ",", ".") ?>đ</div>
                 <p><strong>Mô tả:</strong> <?= nl2br(htmlspecialchars($food_data['description'])) ?></p>
-                <form action="add_to_cart.php" method="POST">
-                    <input type="hidden" name="food_id" value="<?= $food_id_hien_tai ?>">
-                    <input type="number" name="quantity" value="1" min="1" style="width: 80px; padding: 5px; margin-right: 10px;">
-                    <button type="submit" class="btn btn-primary" style="background-color: #5d4037; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+                
+                <form id="add-to-cart-form" class="add-to-cart-form">
+                    <input type="number" id="quantity_input" value="1" min="1" style="width: 80px; padding: 5px; margin-right: 10px;">
+                    <button type="submit">
                         🛒 Thêm vào Giỏ hàng
                     </button>
                 </form>
-            </div>
+                </div>
         </div>
 
         <div class="review-form-section">
@@ -275,7 +310,69 @@ $stmt_reviews->close();
     <?php else: ?>
         <p>Chưa có đánh giá nào cho món ăn này. Hãy là người đầu tiên gửi đánh giá!</p>
     <?php endif; ?>
+</div>
 
+<script>
+    const FOOD_ID = <?= $food_id_hien_tai ?>;
+
+    // Hàm cập nhật số lượng giỏ hàng trên Header
+    function updateCartCount(count) {
+        const countElement = document.getElementById('cart-item-count');
+        if (countElement) {
+            // Nếu có hàng, hiển thị (N), nếu không thì để trống
+            countElement.textContent = count > 0 ? `(${count})` : '';
+        }
+    }
+
+    // Hàm hiển thị thông báo
+    function showNotification(message, type = 'success') {
+        // Tùy chỉnh: Dùng console.log/alert hoặc thư viện Toastr/SweetAlert
+        alert(`${type.toUpperCase()}: ${message}`);
+    }
+
+    // Cập nhật số lượng giỏ hàng ban đầu khi trang tải
+    document.addEventListener('DOMContentLoaded', () => {
+        // Cập nhật giá trị ban đầu (PHP đã tính toán)
+        updateCartCount(<?= $current_cart_items ?>);
+
+        const form = document.getElementById('add-to-cart-form');
+        const quantityInput = document.getElementById('quantity_input');
+        
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault(); // Ngăn chặn form submit (ngăn chặn tải lại trang)
+
+                const quantity = parseInt(quantityInput.value) || 1;
+                
+                // Chuẩn bị dữ liệu gửi đi (JSON)
+                const data = { food_id: FOOD_ID, quantity: quantity };
+
+                fetch('add_to_cart.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Cập nhật số lượng giỏ hàng trên Header
+                        updateCartCount(data.cart_total_items);
+                        // Thông báo thành công
+                        showNotification(`Đã thêm ${data.food_name} (x${quantity}) vào giỏ hàng!`);
+                    } else {
+                        showNotification(data.message || 'Lỗi khi thêm vào giỏ hàng.', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Lỗi kết nối:', error);
+                    showNotification('Lỗi kết nối máy chủ.', 'error');
+                });
+            });
+        }
+    });
+</script>
 </div>
 </body>
 </html>

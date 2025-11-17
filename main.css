@@ -540,3 +540,63 @@ footer {
 
   /* Cần thêm data-label vào PHP/HTML cho responsive table hoạt động tốt */
 }
+/* --- Tông màu chủ đạo: Nâu (#5D4037), Be (#F7F3E3), Rêu (#4A7E64) --- */
+
+/* 1. Thiết lập chung cho các nút hành động trong .item */
+.item button {
+  display: block; /* Đảm bảo nút chiếm toàn bộ chiều rộng */
+  width: 100%;
+  padding: 10px 15px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 2. Nút "Thêm vào giỏ hàng" (class: add-to-cart) - Màu Rêu */
+.item .add-to-cart {
+  /* Màu nền chính (Rêu đậm) */
+  background-color: #4a7e64;
+  /* Màu chữ (Trắng/Be nhạt) */
+  color: #f7f3e3;
+  box-shadow: 0 4px #3c6a53; /* Tạo độ sâu 3D */
+}
+
+.item .add-to-cart:hover {
+  background-color: #5b8f77; /* Rêu nhạt hơn khi di chuột */
+}
+
+.item .add-to-cart:active {
+  background-color: #3c6a53; /* Rêu đậm hơn khi nhấp */
+  transform: translateY(2px); /* Hiệu ứng nhấn nút */
+  box-shadow: 0 2px #3c6a53;
+}
+
+/* 3. Nút "Mua ngay" (Button type="submit" trong form) - Màu Nâu/Be */
+.item form button[type="submit"] {
+  /* Màu nền phụ (Nâu nhạt/Be) */
+  background-color: #e6d7b7;
+  /* Màu chữ (Nâu đậm) */
+  color: #5d4037;
+  border: 1px solid #c4b08a;
+  box-shadow: 0 4px #c4b08a; /* Tạo độ sâu 3D */
+}
+
+.item form button[type="submit"]:hover {
+  background-color: #f7f3e3; /* Be sáng hơn khi di chuột */
+}
+
+.item form button[type="submit"]:active {
+  background-color: #c4b08a; /* Nâu đậm hơn khi nhấp */
+  transform: translateY(2px); /* Hiệu ứng nhấn nút */
+  box-shadow: 0 2px #c4b08a;
+}
+
+/* Điều chỉnh lại khoảng cách nếu cần */
+.item form {
+  margin-top: -10px; /* Đẩy form lên sát nút giỏ hàng nếu cần */
+}
